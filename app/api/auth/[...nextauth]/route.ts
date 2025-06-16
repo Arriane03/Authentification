@@ -1,62 +1,66 @@
-import NextAuth from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import CredentialsProvider from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { PrismaClient, User } from "@prisma/client";
-import { compare } from "bcryptjs";
-import { NextAuthOptions } from "next-auth";
+import { compare } from 'bcryptjs';
+import NextAuth from 'next-auth';
+import CredentialsProvider from 'next-auth/providers/credentials';
+
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-interface UserWithPassword extends User {
-  password: string | null;
-}
-
-export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
+const handler = NextAuth({
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
     CredentialsProvider({
-      name: "credentials",
+      name: "Credentials",
       credentials: {
         email: { label: "Email", type: "text" },
-        password: { label: "Mot de passe", type: "password" },
+        password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
-          return null;
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error("Email et mot de passe requis");
         }
 
-        const user = (await prisma.user.findUnique({
+        const user = await prisma.user.findUnique({
           where: { email: credentials.email },
-        })) as UserWithPassword | null;
+        });
 
         if (!user || !user.password) {
-          return null;
+          throw new Error("Email ou mot de passe invalide");
         }
 
-        const isValid = await compare(credentials.password, user.password);
-        if (!isValid) {
-          return null;
+        const isValidPassword = await compare(
+          credentials.password,
+          user.password
+        );
+
+        if (!isValidPassword) {
+          throw new Error("Email ou mot de passe invalide");
         }
 
-        // Supprime le mot de passe avant de retourner l'objet utilisateur
-        const { password, ...userWithoutPassword } = user;
-        return userWithoutPassword;
+        // Return user object without password
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        };
       },
     }),
   ],
-  session: {
-    strategy: "jwt",
-  },
   pages: {
     signIn: "/login",
   },
-  secret: process.env.NEXTAUTH_SECRET,
-};
+  session: {
+    strategy: "jwt",
+  },
+  callbacks: {
+    async jwt({ token, user }) {
+      if (user) token.user = user;
+      return token;
+    },
+    async session({ session, token }) {
+      if (token?.user) session.user = token.user;
+      return session;
+    },
+  },
+});
 
-const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };

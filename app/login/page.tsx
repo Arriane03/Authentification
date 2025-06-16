@@ -1,8 +1,9 @@
 'use client';
 
+import { useState } from 'react';
+
 import { signIn } from 'next-auth/react';
 import Link from 'next/link';
-import { useState } from 'react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,7 +25,8 @@ export default function LoginPage() {
     setLoading(false);
 
     if (res?.error) {
-      setError('Email ou mot de passe incorrect');
+      console.log(res);
+      setError('Email ou mot de passe incorrec');
     } else {
       // Redirige vers la page d'accueil après login réussi
       window.location.href = '/';

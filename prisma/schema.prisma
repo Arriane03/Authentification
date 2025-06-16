@@ -5,13 +5,13 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = "postgresql://toto:toto@localhost:5432/toto"
 }
 
 model User {
   id             String   @id @default(cuid())
   name           String?
-  email          String?  @unique
+  email          String  @unique
   emailVerified  DateTime?
   image          String?
   password       String?   
